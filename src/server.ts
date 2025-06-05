@@ -6,6 +6,8 @@ import { z } from 'zod';
 import { google, docs_v1, drive_v3 } from 'googleapis';
 import { authorize, runSetup } from './auth.js';
 import { OAuth2Client } from 'google-auth-library';
+import { ApplyParagraphStyleParameter, ApplyTextStyleParameter, CreateDocumentParameter, CreateFolderParameter, CreateFromTemplateParameter, DeleteContentRangeParameter, DeleteFileParameter, FileIdParameter, FolderIdParameter, FormatMatchingTextParameter, InsertPageBreakParameter, InsertTableParameter, InsertTextParameter, ListDocsParameter, ListFolderContentsParameter, MoveFileParameter, ReadGoogleDocParameter, RenameFileParameter, TextToAppendParameter, CopyFileParameter } from './types.js';
+import { buildParagraphStyleRequests, buildTextStyleRequests, deleteContentRange, executeBatchUpdate, insertText } from './googleDocsApiHelpers.js';
 
 let authClient: OAuth2Client | null = null;
 let googleDocs: docs_v1.Docs | null = null;
@@ -155,6 +157,227 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
           },
           required: ["title"]
         }
+      },
+      {
+        name: "insertText",
+        description: "Inserts text at a specific index in a Google Document.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: {
+              type: "string",
+              description: "The ID of the Google Document"
+            },
+            text: {
+              type: "string",
+              description: "The text to insert."
+            },
+            index: {
+              type: "number",
+              minimum: 1,
+              description: "The index where to insert the text (must be >= 1)."
+            }
+          },
+          required: ["documentId", "text", "index"]
+        }
+      },
+      {
+        name: "deleteContentRange",
+        description: "Deletes a range of content from a Google Document.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: {
+              type: "string",
+              description: "The ID of the Google Document"
+            },
+            startIndex: {
+              type: "number",
+              minimum: 1,
+              description: "The starting index of the range to delete (inclusive)."
+            },
+            endIndex: {
+              type: "number",
+              minimum: 1,
+              description: "The ending index of the range to delete (exclusive)."
+            }
+          },
+          required: ["documentId", "startIndex", "endIndex"]
+        }
+      },
+      {
+        name: "applyTextStyle",
+        description: "Applies rich styling (bold, italic, colors, etc.) to a specific text range.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string" },
+            startIndex: { type: "number", minimum: 1 },
+            endIndex: { type: "number", minimum: 1 },
+            bold: { type: "boolean", nullable: true },
+            italic: { type: "boolean", nullable: true },
+            underline: { type: "boolean", nullable: true },
+            strikethrough: { type: "boolean", nullable: true },
+            fontSize: { type: "number", minimum: 1, nullable: true },
+            fontFamily: { type: "string", nullable: true },
+            foregroundColor: { type: "string", pattern: "^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$", nullable: true },
+            backgroundColor: { type: "string", pattern: "^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$", nullable: true },
+            linkUrl: { type: "string", format: "uri", nullable: true }
+          },
+          required: ["documentId", "startIndex", "endIndex"]
+        }
+      },
+      {
+        name: "formatMatchingText",
+        description: "Finds text within a document and applies styling to it.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string" },
+            textToFind: { type: "string" },
+            matchInstance: { type: "number", minimum: 1, default: 1 },
+            bold: { type: "boolean", nullable: true },
+            italic: { type: "boolean", nullable: true },
+            underline: { type: "boolean", nullable: true },
+            strikethrough: { type: "boolean", nullable: true },
+            fontSize: { type: "number", minimum: 1, nullable: true },
+            fontFamily: { type: "string", nullable: true },
+            foregroundColor: { type: "string", pattern: "^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$", nullable: true },
+            backgroundColor: { type: "string", pattern: "^#?([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$", nullable: true },
+            linkUrl: { type: "string", format: "uri", nullable: true }
+          },
+          required: ["documentId", "textToFind"]
+        }
+      },
+      {
+        name: "applyParagraphStyle",
+        description: "Applies paragraph-level styling (alignment, named styles) to a range.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string" },
+            startIndex: { type: "number", minimum: 1 },
+            endIndex: { type: "number", minimum: 1 },
+            alignment: { type: "string", enum: ['START', 'CENTER', 'END', 'JUSTIFIED'], nullable: true },
+            namedStyleType: { type: "string", enum: ['NORMAL_TEXT', 'TITLE', 'SUBTITLE', 'HEADING_1', 'HEADING_2', 'HEADING_3', 'HEADING_4', 'HEADING_5', 'HEADING_6'], nullable: true }
+          },
+          required: ["documentId", "startIndex", "endIndex"]
+        }
+      },
+      {
+        name: "insertTable",
+        description: "Inserts a table into a document.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string" },
+            rows: { type: "number", minimum: 1 },
+            columns: { type: "number", minimum: 1 },
+            index: { type: "number", minimum: 1 }
+          },
+          required: ["documentId", "rows", "columns", "index"]
+        }
+      },
+      {
+        name: "insertPageBreak",
+        description: "Inserts a page break at a specific index.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            documentId: { type: "string" },
+            index: { type: "number", minimum: 1 }
+          },
+          required: ["documentId", "index"]
+        }
+      },
+      {
+        name: "getDocumentInfo",
+        description: "Gets detailed metadata for a specific file in Google Drive.",
+        inputSchema: {
+          type: "object",
+          properties: { fileId: { type: "string" } },
+          required: ["fileId"]
+        }
+      },
+      {
+        name: "createFolder",
+        description: "Creates a new folder in Google Drive.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            parentFolderId: { type: "string", nullable: true, description: "ID of the parent folder. If omitted, folder is created in root." }
+          },
+          required: ["name"]
+        }
+      },
+      {
+        name: "listFolderContents",
+        description: "Lists the contents (files and folders) of a specific folder in Google Drive.",
+        inputSchema: {
+          type: "object",
+          properties: { folderId: { type: "string" } },
+          required: ["folderId"]
+        }
+      },
+      {
+        name: "moveFile",
+        description: "Moves a file to a different folder in Google Drive.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            fileId: { type: "string" },
+            destinationFolderId: { type: "string" }
+          },
+          required: ["fileId", "destinationFolderId"]
+        }
+      },
+      {
+        name: "copyFile",
+        description: "Creates a copy of a file.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            fileId: { type: "string" },
+            newName: { type: "string" },
+            destinationFolderId: { type: "string", nullable: true }
+          },
+          required: ["fileId", "newName"]
+        }
+      },
+      {
+        name: "renameFile",
+        description: "Renames a file in Google Drive.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            fileId: { type: "string" },
+            newName: { type: "string" }
+          },
+          required: ["fileId", "newName"]
+        }
+      },
+      {
+        name: "deleteFile",
+        description: "Deletes a file or folder (moves it to the trash).",
+        inputSchema: {
+          type: "object",
+          properties: { fileId: { type: "string" } },
+          required: ["fileId"]
+        }
+      },
+      {
+        name: "createFromTemplate",
+        description: "Creates a new Google Document from a template.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            templateId: { type: "string" },
+            newName: { type: "string" },
+            parentFolderId: { type: "string", nullable: true }
+          },
+          required: ["templateId", "newName"]
+        }
       }
     ],
   };
@@ -167,7 +390,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case "readGoogleDoc": {
         const docs = await getDocsClient();
-        const { documentId, format = "text" } = args as { documentId: string; format?: string };
+        const { documentId, format = "text" } = args as unknown as ReadGoogleDocParameter;
         
         const fields = format === 'json' 
           ? '*' 
@@ -209,7 +432,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "appendToGoogleDoc": {
         const docs = await getDocsClient();
-        const { documentId, textToAppend } = args as { documentId: string; textToAppend: string };
+        const { documentId, textToAppend } = args as unknown as TextToAppendParameter;
 
         // Get the current end index
         const docInfo = await docs.documents.get({ 
@@ -246,7 +469,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "listGoogleDocs": {
         const drive = await getDriveClient();
-        const { maxResults = 20, query } = args as { maxResults?: number; query?: string };
+        const { maxResults = 20, query } = args as unknown as ListDocsParameter;
 
         let queryString = "mimeType='application/vnd.google-apps.document' and trashed=false";
         if (query) {
@@ -286,7 +509,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "createDocument": {
         const drive = await getDriveClient();
-        const { title, initialContent } = args as { title: string; initialContent?: string };
+        const { title, initialContent } = args as unknown as CreateDocumentParameter;
 
         const documentMetadata = {
           name: title,
@@ -325,6 +548,257 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{ type: "text", text: result }]
         };
+      }
+
+      case "insertText": {
+        const docs = await getDocsClient();
+        const { documentId, text, index } = args as unknown as InsertTextParameter;
+
+        if (index < 1) {
+          throw new Error("Insert index must be 1 or greater.");
+        }
+        
+        await insertText(docs, documentId, text, index);
+
+        return {
+          content: [{ type: "text", text: `Successfully inserted text into document ${documentId} at index ${index}.` }]
+        };
+      }
+
+      case "deleteContentRange": {
+        const docs = await getDocsClient();
+        const { documentId, startIndex, endIndex } = args as unknown as DeleteContentRangeParameter;
+
+        if (startIndex >= endIndex) {
+          throw new Error("startIndex must be less than endIndex.");
+        }
+        if (startIndex < 1) {
+          throw new Error("startIndex must be 1 or greater.");
+        }
+
+        await deleteContentRange(docs, documentId, startIndex, endIndex);
+
+        return {
+          content: [{ type: "text", text: `Successfully deleted content from document ${documentId} between ${startIndex} and ${endIndex}.` }]
+        };
+      }
+
+      case "applyTextStyle": {
+        const docs = await getDocsClient();
+        const { documentId, startIndex, endIndex, ...textStyle } = args as unknown as ApplyTextStyleParameter;
+        if (startIndex >= endIndex) throw new Error("startIndex must be less than endIndex.");
+        if (Object.keys(textStyle).length === 0) throw new Error("At least one styling property must be provided.");
+
+        const requests = buildTextStyleRequests(textStyle, { startIndex, endIndex });
+        if(requests.length === 0) throw new Error("No valid styling properties were provided to create a request.");
+
+        await executeBatchUpdate(docs, documentId, requests);
+
+        return {
+          content: [{ type: "text", text: `Successfully applied text style to range ${startIndex}-${endIndex} in document ${documentId}.` }]
+        };
+      }
+
+      case "formatMatchingText": {
+        const docs = await getDocsClient();
+        const { documentId, textToFind, matchInstance = 1, ...textStyle } = args as unknown as FormatMatchingTextParameter;
+
+        if (Object.keys(textStyle).length === 0) {
+          throw new Error("At least one styling property (bold, color, etc.) must be provided.");
+        }
+
+        const res = await docs.documents.get({
+          documentId,
+          fields: 'body(content(paragraph(elements(startIndex,endIndex,textRun(content)))))',
+        });
+
+        if (!res.data.body?.content) {
+          throw new Error(`Document body is empty or inaccessible for document ${documentId}.`);
+        }
+        
+        // Reconstruct the full text to find matches accurately
+        let fullText = '';
+        res.data.body.content.forEach(element => {
+          element.paragraph?.elements?.forEach(pe => {
+            fullText += pe.textRun?.content || '';
+          });
+        });
+
+        let foundCount = 0;
+        let startIndex = -1;
+        let searchPos = 0;
+        while(foundCount < matchInstance) {
+          const matchIndex = fullText.indexOf(textToFind, searchPos);
+          if (matchIndex === -1) {
+            throw new Error(`Could not find instance ${matchInstance} of "${textToFind}". Only ${foundCount} instance(s) were found.`);
+          }
+          startIndex = matchIndex + 1; // Docs API is 1-based index
+          searchPos = matchIndex + textToFind.length;
+          foundCount++;
+        }
+
+        const endIndex = startIndex + textToFind.length;
+        
+        const requests = buildTextStyleRequests(textStyle, { startIndex, endIndex });
+        if(requests.length === 0) throw new Error("No valid styling properties were provided to create a request.");
+        
+        await executeBatchUpdate(docs, documentId, requests);
+        
+        return {
+          content: [{ type: "text", text: `Successfully formatted instance ${matchInstance} of "${textToFind}" in document ${documentId}.` }]
+        };
+      }
+      
+      case "applyParagraphStyle": {
+        const docs = await getDocsClient();
+        const { documentId, startIndex, endIndex, ...paragraphStyle } = args as unknown as ApplyParagraphStyleParameter;
+        if (startIndex >= endIndex) throw new Error("startIndex must be less than endIndex.");
+        if (Object.keys(paragraphStyle).length === 0) throw new Error("At least one paragraph styling property must be provided.");
+
+        const requests = buildParagraphStyleRequests(paragraphStyle, { startIndex, endIndex });
+        if(requests.length === 0) throw new Error("No valid styling properties were provided to create a request.");
+
+        await executeBatchUpdate(docs, documentId, requests);
+
+        return {
+          content: [{ type: "text", text: `Successfully applied paragraph style to range ${startIndex}-${endIndex} in document ${documentId}.` }]
+        };
+      }
+
+      case "insertTable": {
+        const docs = await getDocsClient();
+        const { documentId, rows, columns, index } = args as unknown as InsertTableParameter;
+
+        await executeBatchUpdate(docs, documentId, [{
+          insertTable: {
+            rows,
+            columns,
+            location: { index }
+          }
+        }]);
+
+        return {
+          content: [{ type: "text", text: `Successfully inserted a ${rows}x${columns} table in document ${documentId}.` }]
+        };
+      }
+
+      case "insertPageBreak": {
+        const docs = await getDocsClient();
+        const { documentId, index } = args as unknown as InsertPageBreakParameter;
+
+        await executeBatchUpdate(docs, documentId, [{
+          insertPageBreak: {
+            location: { index }
+          }
+        }]);
+
+        return {
+          content: [{ type: "text", text: `Successfully inserted page break in document ${documentId}.` }]
+        };
+      }
+
+      case "getDocumentInfo": {
+        const drive = await getDriveClient();
+        const { fileId } = args as unknown as FileIdParameter;
+        const res = await drive.files.get({
+          fileId,
+          fields: 'id,name,mimeType,createdTime,modifiedTime,owners,webViewLink,parents'
+        });
+        return { content: [{ type: "text", text: JSON.stringify(res.data, null, 2) }] };
+      }
+
+      case "createFolder": {
+        const drive = await getDriveClient();
+        const { name, parentFolderId } = args as unknown as CreateFolderParameter;
+        const fileMetadata = {
+          name,
+          mimeType: 'application/vnd.google-apps.folder',
+          ...(parentFolderId && { parents: [parentFolderId] })
+        };
+        const res = await drive.files.create({
+          requestBody: fileMetadata,
+          fields: 'id,name,webViewLink'
+        });
+        return { content: [{ type: "text", text: `Folder created successfully: ${JSON.stringify(res.data, null, 2)}` }] };
+      }
+      
+      case "listFolderContents": {
+        const drive = await getDriveClient();
+        const { folderId } = args as unknown as ListFolderContentsParameter;
+        const res = await drive.files.list({
+          q: `'${folderId}' in parents and trashed=false`,
+          fields: 'files(id,name,mimeType,modifiedTime)',
+          orderBy: 'folder,name'
+        });
+        return { content: [{ type: "text", text: `Contents of folder ${folderId}:\n${JSON.stringify(res.data.files, null, 2)}` }] };
+      }
+
+      case "moveFile": {
+        const drive = await getDriveClient();
+        const { fileId, destinationFolderId } = args as unknown as MoveFileParameter;
+        const file = await drive.files.get({ fileId, fields: 'parents' });
+        const previousParents = file.data.parents?.join(',');
+
+        const res = await drive.files.update({
+          fileId,
+          addParents: destinationFolderId,
+          removeParents: previousParents,
+          fields: 'id,name,parents'
+        });
+
+        return { content: [{ type: "text", text: `File moved successfully: ${JSON.stringify(res.data, null, 2)}` }] };
+      }
+
+      case "copyFile": {
+        const drive = await getDriveClient();
+        const { fileId, newName, destinationFolderId } = args as unknown as CopyFileParameter;
+        const requestBody: drive_v3.Schema$File = { name: newName };
+        if (destinationFolderId) {
+          requestBody.parents = [destinationFolderId];
+        }
+
+        const res = await drive.files.copy({
+          fileId,
+          requestBody,
+          fields: 'id,name,webViewLink,parents'
+        });
+        return { content: [{ type: "text", text: `File copied successfully: ${JSON.stringify(res.data, null, 2)}` }] };
+      }
+
+      case "renameFile": {
+        const drive = await getDriveClient();
+        const { fileId, newName } = args as unknown as RenameFileParameter;
+        const res = await drive.files.update({
+          fileId,
+          requestBody: { name: newName },
+          fields: 'id,name'
+        });
+        return { content: [{ type: "text", text: `File renamed successfully: ${JSON.stringify(res.data, null, 2)}` }] };
+      }
+
+      case "deleteFile": {
+        const drive = await getDriveClient();
+        const { fileId } = args as unknown as DeleteFileParameter;
+        await drive.files.update({
+          fileId,
+          requestBody: { trashed: true }
+        });
+        return { content: [{ type: "text", text: `File with ID ${fileId} moved to trash.` }] };
+      }
+
+      case "createFromTemplate": {
+        const drive = await getDriveClient();
+        const { templateId, newName, parentFolderId } = args as unknown as CreateFromTemplateParameter;
+        const requestBody: drive_v3.Schema$File = {
+            name: newName,
+            ...(parentFolderId && { parents: [parentFolderId] })
+        };
+        const res = await drive.files.copy({
+            fileId: templateId,
+            requestBody,
+            fields: 'id,name,webViewLink'
+        });
+        return { content: [{ type: "text", text: `Document created from template: ${JSON.stringify(res.data, null, 2)}` }] };
       }
 
       default:
