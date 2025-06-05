@@ -3,7 +3,7 @@ import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import * as readline from 'readline/promises';
+import * as readline from 'readline';
 import { fileURLToPath } from 'url';
 
 // --- Calculate paths relative to this script file (ESM way) ---
@@ -58,6 +58,29 @@ async function saveCredentials(client: OAuth2Client): Promise<void> {
 }
 
 async function authenticate(): Promise<OAuth2Client> {
+  // Check if we're running in an interactive environment
+  const isInteractive = process.stdin.isTTY && process.stdout.isTTY;
+  
+  if (!isInteractive) {
+    // Non-interactive mode (e.g., launched by MCP client)
+    const { client_secret, client_id, redirect_uris } = await loadClientSecrets();
+    const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
+    
+    const authorizeUrl = oAuth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope: SCOPES.join(' '),
+    });
+    
+    console.error('\n=== GOOGLE DOCS MCP SETUP REQUIRED ===');
+    console.error('No saved authentication found. Please run the following command ONCE to authenticate:');
+    console.error('\nnode ./dist/server.js --setup');
+    console.error('\nOr manually visit this URL and follow the setup instructions:');
+    console.error(authorizeUrl);
+    console.error('\nAfter authentication, the MCP server will work automatically.');
+    throw new Error('Authentication required - run setup first');
+  }
+  
+  // Interactive mode - proceed with normal flow
   const { client_secret, client_id, redirect_uris } = await loadClientSecrets();
   const oAuth2Client = new google.auth.OAuth2(client_id, client_secret, redirect_uris?.[0]);
 
@@ -69,7 +92,13 @@ async function authenticate(): Promise<OAuth2Client> {
   });
 
   console.error('Authorize this app by visiting this url:', authorizeUrl);
-  const code = await rl.question('Enter the code from that page here: ');
+  
+  // Use promise wrapper for readline question
+  const code = await new Promise<string>((resolve) => {
+    rl.question('Enter the code from that page here: ', (answer) => {
+      resolve(answer);
+    });
+  });
   rl.close();
 
   try {
@@ -98,4 +127,16 @@ export async function authorize(): Promise<OAuth2Client> {
   console.error('Starting authentication flow...');
   client = await authenticate();
   return client;
+}
+
+// Helper function for manual setup
+export async function runSetup(): Promise<void> {
+  console.error('=== Google Docs MCP Server Setup ===');
+  try {
+    await authenticate();
+    console.error('\n✅ Setup complete! The MCP server is now ready to use.');
+  } catch (err) {
+    console.error('\n❌ Setup failed:', err);
+    process.exit(1);
+  }
 }
