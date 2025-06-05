@@ -1,5 +1,8 @@
 # Ultimate Google Docs & Drive MCP Server
 
+**🔄 FORKED FROM [a-bonus/google-docs-mcp](https://github.com/a-bonus/google-docs-mcp)**  
+**✨ UPDATED TO USE MCP SDK** - This repository is a modernized version of the original Google Docs MCP server, migrated from the FastMCP library to the official Model Context Protocol (MCP) SDK for improved compatibility with Claude Desktop and other MCP clients.
+
 ![Demo Animation](assets/google.docs.mcp.1.gif)
 
 Connect Claude Desktop (or other MCP clients) to your Google Docs and Google Drive!
@@ -7,7 +10,7 @@ Connect Claude Desktop (or other MCP clients) to your Google Docs and Google Dri
 > 🔥 **Check out [15 powerful tasks](SAMPLE_TASKS.md) you can accomplish with this enhanced server!**
 > 📁 **NEW:** Complete Google Drive file management capabilities!
 
-This comprehensive server uses the Model Context Protocol (MCP) and the `fastmcp` library to provide tools for reading, writing, formatting, structuring Google Documents, and managing your entire Google Drive. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents and files programmatically with advanced capabilities.
+This comprehensive server uses the Model Context Protocol (MCP) SDK to provide tools for reading, writing, formatting, structuring Google Documents, and managing your entire Google Drive. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents and files programmatically with advanced capabilities.
 
 **Features:**
 
@@ -99,7 +102,7 @@ This server needs permission to talk to Google APIs on your behalf. You'll creat
 
 1.  **Clone the Repository:** Open your terminal/command prompt and run:
     ```bash
-    git clone https://github.com/a-bonus/google-docs-mcp.git mcp-googledocs-server
+    git clone https://github.com/yudduy/gdoc-mcp.git mcp-googledocs-server
     ```
 2.  **Navigate into Directory:**
     ```bash

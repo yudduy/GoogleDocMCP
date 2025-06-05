@@ -5,9 +5,31 @@ dist/
 # Credentials / Tokens
 credentials.json
 token.json
+key.json
+*.pem
+*.key
 
 # Log files
 *.log
 
 # Environment variables (if you use a .env file later)
-.env* 
+.env*
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp 
