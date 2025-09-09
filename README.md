@@ -1,4 +1,4 @@
-# Ultimate Google Docs & Drive MCP Server
+# Google Docs & Drive MCP Server
 
 **Built with the official MCP SDK** - A Google Docs and Drive integration that connects Claude Desktop and other MCP clients directly to your Google workspace. Originally inspired by [a-bonus/google-docs-mcp](https://github.com/a-bonus/google-docs-mcp), but completely rewritten to use the official Model Context Protocol SDK.
 
