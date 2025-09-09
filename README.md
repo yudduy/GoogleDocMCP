@@ -1,7 +1,6 @@
 # Ultimate Google Docs & Drive MCP Server
 
-**🔄 FORKED FROM [a-bonus/google-docs-mcp](https://github.com/a-bonus/google-docs-mcp)**  
-**✨ UPDATED TO USE MCP SDK** - This repository is a modernized version of the original Google Docs MCP server, migrated from the FastMCP library to the official Model Context Protocol (MCP) SDK for improved compatibility with Claude Desktop and other MCP clients.
+**Built with the official MCP SDK** - A Google Docs and Drive integration that connects Claude Desktop and other MCP clients directly to your Google workspace. Originally inspired by [a-bonus/google-docs-mcp](https://github.com/a-bonus/google-docs-mcp), but completely rewritten to use the official Model Context Protocol SDK.
 
 ![Demo Animation](assets/google.docs.mcp.1.gif)
 
@@ -10,7 +9,9 @@ Connect Claude Desktop (or other MCP clients) to your Google Docs and Google Dri
 > 🔥 **Check out [15 powerful tasks](SAMPLE_TASKS.md) you can accomplish with this enhanced server!**
 > 📁 **NEW:** Complete Google Drive file management capabilities!
 
-This comprehensive server uses the Model Context Protocol (MCP) SDK to provide tools for reading, writing, formatting, structuring Google Documents, and managing your entire Google Drive. It acts as a powerful bridge, allowing AI assistants like Claude to interact with your documents and files programmatically with advanced capabilities.
+I built this to solve a real problem: I wanted Claude to help me manage my Google Docs and Drive files, but there wasn't a reliable way to do it. This server bridges that gap, giving AI assistants comprehensive access to read, edit, format, and organize your Google workspace.
+
+What started as a simple document reader has evolved into a full-featured Drive management tool. Whether you're organizing project files, formatting reports, or just want Claude to help with document tasks, this server handles it all.
 
 **Features:**
 
@@ -46,32 +47,32 @@ This comprehensive server uses the Model Context Protocol (MCP) SDK to provide t
 
 ## Prerequisites
 
-Before you start, make sure you have:
+You'll need a few things before we start:
 
-1.  **Node.js and npm:** A recent version of Node.js (which includes npm) installed on your computer. You can download it from [nodejs.org](https://nodejs.org/). (Version 18 or higher recommended).
-2.  **Git:** Required for cloning this repository. ([Download Git](https://git-scm.com/downloads)).
-3.  **A Google Account:** The account that owns or has access to the Google Docs you want to interact with.
-4.  **Command Line Familiarity:** Basic comfort using a terminal or command prompt (like Terminal on macOS/Linux, or Command Prompt/PowerShell on Windows).
-5.  **Claude Desktop (Optional):** If your goal is to connect this server to Claude, you'll need the Claude Desktop application installed.
+1.  **Node.js and npm** - Version 18 or newer. Download from [nodejs.org](https://nodejs.org/) if you don't have it.
+2.  **Git** - For cloning the repository. Get it from [git-scm.com](https://git-scm.com/downloads).
+3.  **A Google Account** - The one that has access to the docs you want to work with.
+4.  **Basic terminal skills** - You'll need to run a few commands in Terminal (Mac/Linux) or Command Prompt (Windows).
+5.  **Claude Desktop** (optional) - If you want to use this with Claude. The server works with any MCP client.
 
 ---
 
 ## Setup Instructions
 
-Follow these steps carefully to get your own instance of the server running.
+Here's how to set everything up. I'll walk you through each step:
 
 ### Step 1: Google Cloud Project & Credentials (The Important Bit!)
 
-This server needs permission to talk to Google APIs on your behalf. You'll create special "keys" (credentials) that only your server will use.
+Your server needs permission to access Google's APIs. Think of this as creating a secure key that lets your server talk to Google on your behalf - no one else can use it.
 
 1.  **Go to Google Cloud Console:** Open your web browser and go to the [Google Cloud Console](https://console.cloud.google.com/). You might need to log in with your Google Account.
 2.  **Create or Select a Project:**
     - If you don't have a project, click the project dropdown near the top and select "NEW PROJECT". Give it a name (e.g., "My MCP Docs Server") and click "CREATE".
     - If you have existing projects, you can select one or create a new one.
-3.  **Enable APIs:** You need to turn on the specific Google services this server uses.
-    - In the search bar at the top, type "APIs & Services" and select "Library".
-    - Search for "**Google Docs API**" and click on it. Then click the "**ENABLE**" button.
-    - Search for "**Google Drive API**" and click on it. Then click the "**ENABLE**" button (this is often needed for finding files or permissions).
+3.  **Enable the APIs:** We need to turn on Google Docs and Drive access.
+    - Search for "APIs & Services" and go to "Library".
+    - Find "**Google Docs API**" and enable it.
+    - Find "**Google Drive API**" and enable it too (needed for file management).
 4.  **Configure OAuth Consent Screen:** This screen tells users (usually just you) what your app wants permission for.
     - On the left menu, click "APIs & Services" -> "**OAuth consent screen**".
     - Choose User Type: Select "**External**" and click "CREATE".
@@ -96,13 +97,13 @@ This server needs permission to talk to Google APIs on your behalf. You'll creat
 6.  **⬇️ DOWNLOAD THE CREDENTIALS FILE:** A box will pop up showing your Client ID. Click the "**DOWNLOAD JSON**" button.
     - Save this file. It will likely be named something like `client_secret_....json`.
     - **IMPORTANT:** Rename the downloaded file to exactly `credentials.json`.
-7.  ⚠️ **SECURITY WARNING:** Treat this `credentials.json` file like a password! Do not share it publicly, and **never commit it to GitHub.** Anyone with this file could potentially pretend to be _your application_ (though they'd still need user consent to access data).
+7.  **⚠️ Keep this file safe!** Treat `credentials.json` like a password. Don't share it or upload it to GitHub. The included `.gitignore` should protect you, but be careful.
 
 ### Step 2: Get the Server Code
 
 1.  **Clone the Repository:** Open your terminal/command prompt and run:
     ```bash
-    git clone https://github.com/yudduy/gdoc-mcp.git mcp-googledocs-server
+    git clone https://github.com/duy/gdoc-mcp.git mcp-googledocs-server
     ```
 2.  **Navigate into Directory:**
     ```bash
@@ -147,9 +148,9 @@ Now you need to run the server once manually to grant it permission to access yo
     - Log in with the **same Google account** you added as a Test User in Step 1.4.
     - Google will show a screen asking for permission for your app ("Claude Docs MCP Access" or similar) to access Google Docs/Drive. Review and click "**Allow**" or "**Grant**".
 4.  **Get the Authorization Code:**
-    - After clicking Allow, your browser will likely try to redirect to `http://localhost` and show a **"This site can't be reached" error**. **THIS IS NORMAL!**
-    - Look **carefully** at the URL in your browser's address bar. It will look like `http://localhost/?code=4/0Axxxxxxxxxxxxxx&scope=...`
-    - Copy the long string of characters **between `code=` and the `&scope` part**. This is your single-use authorization code.
+    - After clicking Allow, your browser will try to go to `http://localhost` and show an error. **This is expected!**
+    - Look at the URL in your browser's address bar. You'll see something like `http://localhost/?code=4/0Axxxxxxxxxxxxxx&scope=...`
+    - Copy the long code between `code=` and `&scope`. That's your authorization code.
 5.  **Paste Code into Terminal:** Go back to your terminal where the script is waiting ("Enter the code from that page here:"). Paste the code you just copied.
 6.  **Press Enter.**
 7.  **Success!** The script should print:
@@ -157,7 +158,7 @@ Now you need to run the server once manually to grant it permission to access yo
     - "Token stored to .../token.json"
     - It will then finish starting and likely print "Awaiting MCP client connection via stdio..." or similar, and then exit (or you can press `Ctrl+C` to stop it).
 8.  ✅ **Check:** You should now see a new file named `token.json` in your `mcp-googledocs-server` folder.
-9.  ⚠️ **SECURITY WARNING:** This `token.json` file contains the key that allows the server to access your Google account _without_ asking again. Protect it like a password. **Do not commit it to GitHub.** The included `.gitignore` file should prevent this automatically.
+9.  **🔒 Keep token.json safe too!** This file lets the server access your Google account. Don't share it or commit it to Git (`.gitignore` has you covered).
 
 ### Step 6: Configure Claude Desktop (Optional)
 
@@ -242,4 +243,4 @@ Claude will automatically launch your server in the background when needed using
 
 ## License
 
-This project is licensed under the MIT License - see the `LICENSE` file for details. (Note: You should add a `LICENSE` file containing the MIT License text to your repository).
+MIT License - see the `LICENSE` file for details. Feel free to use this in your own projects!
