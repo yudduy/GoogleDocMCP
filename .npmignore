@@ -1,0 +1,18 @@
+# Exclude backup files from npm package
+src/backup/
+
+# Exclude development and testing files
+tests/
+*.test.js
+*.test.ts
+
+# Exclude configuration files not needed in package
+tsconfig.json
+vscode.md
+
+# Exclude assets not needed in package
+assets/
+
+# Exclude documentation
+README.md
+SAMPLE_TASKS.md

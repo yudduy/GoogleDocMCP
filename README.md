@@ -97,13 +97,17 @@ Your server needs permission to access Google's APIs. Think of this as creating 
 6.  **⬇️ DOWNLOAD THE CREDENTIALS FILE:** A box will pop up showing your Client ID. Click the "**DOWNLOAD JSON**" button.
     - Save this file. It will likely be named something like `client_secret_....json`.
     - **IMPORTANT:** Rename the downloaded file to exactly `credentials.json`.
-7.  **⚠️ Keep this file safe!** Treat `credentials.json` like a password. Don't share it or upload it to GitHub. The included `.gitignore` should protect you, but be careful.
+7.  **⚠️ Keep this file safe!** Treat `credentials.json` like a password. Set secure file permissions:
+    ```bash
+    chmod 600 credentials.json
+    ```
+    Don't share it or upload it to GitHub. The included `.gitignore` should prevent committing, but verify files are not staged or tracked before pushing.
 
 ### Step 2: Get the Server Code
 
 1.  **Clone the Repository:** Open your terminal/command prompt and run:
     ```bash
-    git clone https://github.com/duy/gdoc-mcp.git mcp-googledocs-server
+    git clone https://github.com/tyddyt/GoogleDocMCP.git
     ```
 2.  **Navigate into Directory:**
     ```bash
@@ -147,18 +151,23 @@ Now you need to run the server once manually to grant it permission to access yo
     - Paste the URL into your web browser and press Enter.
     - Log in with the **same Google account** you added as a Test User in Step 1.4.
     - Google will show a screen asking for permission for your app ("Claude Docs MCP Access" or similar) to access Google Docs/Drive. Review and click "**Allow**" or "**Grant**".
-4.  **Get the Authorization Code:**
-    - After clicking Allow, your browser will try to go to `http://localhost` and show an error. **This is expected!**
-    - Look at the URL in your browser's address bar. You'll see something like `http://localhost/?code=4/0Axxxxxxxxxxxxxx&scope=...`
-    - Copy the long code between `code=` and `&scope`. That's your authorization code.
-5.  **Paste Code into Terminal:** Go back to your terminal where the script is waiting ("Enter the code from that page here:"). Paste the code you just copied.
-6.  **Press Enter.**
+4.  **Authorization Completion (Modern OAuth Loopback):**
+    - After clicking Allow, Google redirects to a loopback URL (`http://127.0.0.1:PORT` or `http://localhost:PORT`).
+    - **Two possible outcomes:**
+      - **Automatic capture (preferred):** If your local server is running and listening on the redirect port, it will automatically capture the authorization code and complete the OAuth flow. You'll see a success message in your terminal and can proceed to step 7.
+      - **Manual code extraction (fallback):** If the app doesn't auto-capture the redirect, your browser may show an error page (like "This site can't be reached" or similar). This is expected when the loopback redirect isn't automatically handled. Look at the URL in your browser's address bar - you'll see something like `http://localhost/?code=4/0Axxxxxxxxxxxxxx&scope=...` or `http://127.0.0.1:PORT/?code=4/0Axxxxxxxxxxxxxx&scope=...`. Copy the long code between `code=` and `&scope` - that's your authorization code.
+5.  **Paste Code into Terminal (Manual flow only):** If you needed to manually extract the code in step 4, go back to your terminal where the script is waiting ("Enter the code from that page here:") and paste the code you copied. If the authorization was automatically captured, skip this step.
+6.  **Press Enter (Manual flow only):** If you pasted a code in step 5, press Enter to submit it.
 7.  **Success!** The script should print:
     - "Authentication successful!"
     - "Token stored to .../token.json"
     - It will then finish starting and likely print "Awaiting MCP client connection via stdio..." or similar, and then exit (or you can press `Ctrl+C` to stop it).
 8.  ✅ **Check:** You should now see a new file named `token.json` in your `mcp-googledocs-server` folder.
-9.  **🔒 Keep token.json safe too!** This file lets the server access your Google account. Don't share it or commit it to Git (`.gitignore` has you covered).
+9.  **🔒 Keep token.json safe too!** This file lets the server access your Google account. Set secure file permissions:
+    ```bash
+    chmod 600 token.json
+    ```
+    Don't share it or commit it to Git. The `.gitignore` should prevent committing, but verify files are not staged or tracked before pushing.
 
 ### Step 6: Configure Claude Desktop (Optional)
 
@@ -233,7 +242,7 @@ Claude will automatically launch your server in the background when needed using
   - Ensure you ran `npm run build` successfully and the `dist` folder exists.
   - Try running the command from `mcp_config.json` manually in your terminal: `node /PATH/TO/YOUR/CLONED/REPO/mcp-googledocs-server/dist/server.js`. Look for any errors printed.
   - Check the Claude Desktop logs (see the official MCP debugging guide).
-  - Make sure all `console.log` status messages in the server code were changed to `console.error`.
+  - Use `console.error` for error-level messages and diagnostics, `console.log` for normal status messages. For production, consider using a proper logging framework for fine-grained control.
 - **Google Authorization Errors:**
   - Ensure you enabled the correct APIs (Docs, Drive).
   - Make sure you added your email as a Test User on the OAuth Consent Screen.
